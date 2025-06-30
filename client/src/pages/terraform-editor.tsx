@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import BlocklyWorkspace from "@/components/BlocklyWorkspace";
-import BlockPalette from "@/components/BlockPalette";
+
 import CodePreview from "@/components/CodePreview";
 import { Download, Copy, Save, FolderOpen, Plus, CheckCircle } from "lucide-react";
 import type { TerraformProject } from "@shared/schema";
@@ -18,7 +18,7 @@ export default function TerraformEditor() {
   const [isValidConfig, setIsValidConfig] = useState(true);
 
   // Fetch projects
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [] } = useQuery<TerraformProject[]>({
     queryKey: ["/api/projects"],
   });
 
@@ -174,12 +174,12 @@ export default function TerraformEditor() {
                 value={currentProject?.id || ""}
                 onChange={(e) => {
                   const projectId = parseInt(e.target.value);
-                  const project = projects.find((p: TerraformProject) => p.id === projectId);
+                  const project = projects.find((p) => p.id === projectId);
                   if (project) handleLoadProject(project);
                 }}
               >
                 <option value="">Select Project</option>
-                {projects.map((project: TerraformProject) => (
+                {projects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
                   </option>
@@ -218,9 +218,6 @@ export default function TerraformEditor() {
 
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Block Palette */}
-        <BlockPalette />
-
         {/* Main Workspace */}
         <div className="flex-1 flex flex-col bg-gray-50">
           <div className="p-4 bg-white border-b border-gray-200">

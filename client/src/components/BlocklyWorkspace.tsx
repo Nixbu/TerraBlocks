@@ -27,37 +27,27 @@ export default function BlocklyWorkspace({ workspaceData, onWorkspaceChange, onH
           onHclGenerated(hcl, true);
 
           // Save workspace data
-          const xmlDom = (window as any).Blockly.Xml.workspaceToDom(workspaceRef.current);
-          const xmlText = (window as any).Blockly.Xml.domToText(xmlDom);
-          onWorkspaceChange({ xml: xmlText });
+          const state = (window as any).Blockly.serialization.workspaces.save(workspaceRef.current);
+          onWorkspaceChange({ state });
         } catch (error) {
           console.error("Error generating HCL:", error);
           onHclGenerated("", false);
         }
       });
 
-      // Handle drag and drop from palette
-      blocklyDiv.current.addEventListener("dragover", (e) => {
-        e.preventDefault();
-      });
-
-      blocklyDiv.current.addEventListener("drop", (e) => {
-        e.preventDefault();
-        const blockType = e.dataTransfer?.getData("application/blockly-block");
-        if (blockType && workspaceRef.current) {
-          const block = workspaceRef.current.newBlock(blockType);
-          block.initSvg();
-          block.render();
-          block.moveBy(100, 100);
-        }
-      });
+      // Blockly handles its own drag and drop from the toolbox
     }
 
     // Load workspace data if provided
     if (workspaceData && workspaceRef.current) {
       try {
-        const xmlDom = (window as any).Blockly.Xml.textToDom(workspaceData.xml);
-        (window as any).Blockly.Xml.domToWorkspace(xmlDom, workspaceRef.current);
+        if (workspaceData.state) {
+          (window as any).Blockly.serialization.workspaces.load(workspaceData.state, workspaceRef.current);
+        } else if (workspaceData.xml) {
+          // Legacy XML format support
+          const xmlDom = (window as any).Blockly.utils.xml.textToDom(workspaceData.xml);
+          (window as any).Blockly.Xml.domToWorkspace(xmlDom, workspaceRef.current);
+        }
       } catch (error) {
         console.error("Error loading workspace data:", error);
       }
@@ -72,11 +62,16 @@ export default function BlocklyWorkspace({ workspaceData, onWorkspaceChange, onH
   }, []);
 
   useEffect(() => {
-    if (workspaceData && workspaceRef.current && workspaceData.xml) {
+    if (workspaceData && workspaceRef.current) {
       try {
         workspaceRef.current.clear();
-        const xmlDom = (window as any).Blockly.Xml.textToDom(workspaceData.xml);
-        (window as any).Blockly.Xml.domToWorkspace(xmlDom, workspaceRef.current);
+        if (workspaceData.state) {
+          (window as any).Blockly.serialization.workspaces.load(workspaceData.state, workspaceRef.current);
+        } else if (workspaceData.xml) {
+          // Legacy XML format support
+          const xmlDom = (window as any).Blockly.utils.xml.textToDom(workspaceData.xml);
+          (window as any).Blockly.Xml.domToWorkspace(xmlDom, workspaceRef.current);
+        }
       } catch (error) {
         console.error("Error loading workspace data:", error);
       }
