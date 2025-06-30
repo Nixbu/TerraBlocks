@@ -1,0 +1,67 @@
+You are tasked with designing and implementing a web-based visual Terraform editor that uses Blockly blocks exclusively (like Scratch) to build and manage infrastructure as code. The goal is to allow users to create, configure, and organize Terraform resources entirely through Blockly’s drag-and-drop block programming paradigm, without relying on any traditional UI forms or property panels beyond the blocks themselves.
+
+Core Vision and Requirements Block-Centric Infrastructure Modeling
+
+Represent every Terraform resource as a distinct Blockly block type. Examples include:
+
+VPC block — the root network container, which holds child blocks such as Subnets, Compute instances, and Security Groups.
+
+Compute block — represents EC2 instances or similar, which can themselves contain nested blocks for IAM Roles, Security Policies, or Volumes.
+
+Subnet block, Security Group block, IAM Role block, and others as needed — each designed to fit logically as children or siblings in the Terraform resource hierarchy.
+
+Hierarchical Nesting & Containment
+
+Blocks should support nesting to reflect real Terraform resource containment and relationships. For example:
+
+A VPC block visually contains subnet and compute blocks inside its block “slot.”
+
+Compute blocks contain nested blocks for IAM roles or security attachments.
+
+This containment should be enforced structurally, so only valid child blocks can be placed inside parent blocks.
+
+OOP Block Type Design and Relationships
+
+Define a class hierarchy or type system for blocks representing:
+
+Resource blocks (e.g., VPC, Compute, Subnet)
+
+Property blocks (e.g., tags, configuration options)
+
+Connection blocks if needed (for dependencies or links)
+
+Clearly specify allowed child types per block type and interactions (e.g., a Compute block can only contain IAM Role blocks as children, not Security Group blocks directly).
+
+Live Terraform Code Generation
+
+Implement a mechanism to translate the current Blockly workspace structure into valid Terraform HCL code automatically and in real time.
+
+This HCL preview should update whenever the user modifies the block layout or properties.
+
+The generated code should be copyable and possibly importable back into the workspace.
+
+User Interaction and Workflow
+
+Users build infrastructure by dragging resource blocks from a palette onto the workspace, nesting blocks as appropriate.
+
+Editing resource properties happens inside the blocks themselves via Blockly’s native input fields, dropdowns, and value slots—no separate property forms or dialogs.
+
+The workspace should allow rearranging, nesting, and deleting blocks intuitively.
+
+Extensibility & Validation
+
+The block definitions and workspace logic should be designed to easily extend with new AWS (or other cloud) resources and configurations.
+
+Implement basic validation rules to prevent invalid block nesting or configurations.
+
+Deliverables & Implementation Guidance Detailed OOP class/type definitions representing block kinds, valid children, and properties.
+
+Blockly block definitions (JSON or JavaScript) for core Terraform resources, designed for nesting.
+
+A workspace initialization script that sets up the Blockly environment with the custom blocks and palette.
+
+A code generator module that walks the Blockly workspace tree and produces clean, valid Terraform HCL code reflecting the user’s design.
+
+A live preview panel integrated into the editor that updates automatically as blocks change.
+
+Focus exclusively on the Blockly-based approach — no separate form UIs, no external property panels beyond what Blockly supports natively inside blocks. The entire user experience for creating and editing infrastructure should revolve around drag-and-drop blocks and in-block property inputs.
