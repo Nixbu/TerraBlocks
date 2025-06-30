@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Visual Terraform Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/blockly.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/blocks.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/javascript.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-container {
+            display: flex;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            margin: 8px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            color: #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            border-radius: 20px 0 0 20px;
+            box-shadow: 5px 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            text-align: center;
+            position: relative;
+        }
+
+        .sidebar-header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .project-section {
+            padding: 20px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .project-selector {
+            margin-bottom: 15px;
+        }
+
+        .project-selector label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #94a3b8;
+        }
+
+        .project-selector select, .project-selector input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn-sm {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            flex: 1;
+            transition: all 0.2s ease;
+        }
+
+        .btn-sm:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        }
+
+        .git-section {
+            padding: 20px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .git-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+
+        .status-dot.disconnected {
+            background: #ef4444;
+        }
+
+        .git-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .workspace-panel {
+            flex: 1;
+            position: relative;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: rgba(59, 130, 246, 0.05);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #64748b, #475569);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .workspace-content {
+            flex: 1;
+            position: relative;
+        }
+
+        .code-panel {
+            width: 450px;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 0 20px 20px 0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .code-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border-bottom: 1px solid #334155;
+        }
+
+        .code-tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 15px;
+        }
+
+        .code-tab {
+            padding: 8px 16px;
+            background: #334155;
+            color: #94a3b8;
+            border: none;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .code-tab.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .code-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .code-preview {
+            flex: 1;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 0;
+            padding: 20px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            overflow: auto;
+            color: #e2e8f0;
+        }
+
+        .file-explorer {
+            max-height: 200px;
+            overflow-y: auto;
+            border-bottom: 1px solid #334155;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: #334155;
+        }
+
+        .file-item.active {
+            background: #3b82f6;
+        }
+
+        .file-icon {
+            font-size: 16px;
+        }
+
+        #blocklyDiv {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-valid {
+            background: rgba(34, 197, 94, 0.2);
+            color: #15803d;
+        }
+
+        .status-invalid {
+            background: rgba(239, 68, 68, 0.2);
+            color: #dc2626;
+        }
+
+        .status-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #d97706;
+        }
+
+        /* Syntax highlighting */
+        .syntax-keyword { color: #8b5cf6; font-weight: 600; }
+        .syntax-string { color: #10b981; }
+        .syntax-number { color: #f59e0b; }
+        .syntax-comment { color: #6b7280; font-style: italic; }
+        .syntax-resource { color: #06b6d4; font-weight: 500; }
+        .syntax-property { color: #ec4899; }
+        .syntax-function { color: #8b5cf6; }
+        .syntax-variable { color: #f59e0b; }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 10000;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 5px;
+            color: #374151;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        /* Connection lines for VPC peering */
+        .connection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .peering-line {
+            stroke: #10b981;
+            stroke-width: 3;
+            stroke-dasharray: 10, 5;
+            opacity: 0.8;
+            animation: dash 2s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -15;
+            }
+        }
+
+        /* Responsive design */
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 250px;
+            }
+            .code-panel {
+                width: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                margin: 4px;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                border-radius: 20px 20px 0 0;
+            }
+            
+            .code-panel {
+                width: 100%;
+                height: 300px;
+                border-radius: 0 0 20px 20px;
+            }
+            
+            .workspace-panel {
+                height: calc(100vh - 400px);
+            }
+        }
+
+        /* Custom scrollbars */
+        .code-content::-webkit-scrollbar,
+        .file-explorer::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .code-content::-webkit-scrollbar-track,
+        .file-explorer::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        .code-content::-webkit-scrollbar-thumb,
+        .file-explorer::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        .code-content::-webkit-scrollbar-thumb:hover,
+        .file-explorer::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>🏗️ Terraform Studio</h1>
+                <p>Visual Infrastructure as Code</p>
+            </div>
+            
+            <div class="project-section">
+                <div class="project-selector">
+                    <label>Current Project</label>
+                    <select id="projectSelect">
+                        <option value="default">My Infrastructure</option>
+                    </select>
+                </div>
+                <div class="project-actions">
+                    <button class="btn-sm" onclick="createProject()">New</button>
+                    <button class="btn-sm" onclick="cloneProject()">Clone</button>
+                    <button class="btn-sm" onclick="deleteProject()">Delete</button>
+                </div>
+            </div>
+            
+            <div class="git-section">
+                <div class="git-status">
+                    <div class="status-dot disconnected" id="gitStatus"></div>
+                    <span>Git Repository</span>
+                </div>
+                <div class="form-group">
+                    <input type="text" id="gitUrl" placeholder="https://github.com/user/repo.git" class="form-input" style="font-size: 12px; padding: 6px;">
+                </div>
+                <div class="git-actions">
+                    <button class="btn-sm" onclick="connectGit()">Connect</button>
+                    <button class="btn-sm" onclick="commitChanges()">Commit</button>
+                    <button class="btn-sm" onclick="pushChanges()">Push</button>
+                    <button class="btn-sm" onclick="pullChanges()">Pull</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workspace -->
+        <div class="workspace-panel">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button class="btn" onclick="clearWorkspace()">🗑️ Clear</button>
+                    <button class="btn btn-success" onclick="saveProject()">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="loadProject()">📁 Load</button>
+                    <button class="btn btn-warning" onclick="validateAll()">✅ Validate</button>
+                    <button class="btn" onclick="loadExample()">🎯 Example</button>
+                    <button class="btn" onclick="showTemplates()">📋 Templates</button>
+                </div>
+                <div class="status-indicator status-valid" id="statusIndicator">
+                    <span>Ready</span>
+                </div>
+            </div>
+            <div class="workspace-content">
+                <div id="blocklyDiv"></div>
+                <svg class="connection-overlay" id="connectionOverlay"></svg>
+            </div>
+        </div>
+
+        <!-- Code Panel -->
+        <div class="code-panel">
+            <div class="code-header">
+                <div class="code-tabs">
+                    <button class="code-tab active" onclick="switchTab('terraform')">main.tf</button>
+                    <button class="code-tab" onclick="switchTab('variables')">variables.tf</button>
+                    <button class="code-tab" onclick="switchTab('outputs')">outputs.tf</button>
+                    <button class="code-tab" onclick="switchTab('lambda')">lambda.py</button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-sm" onclick="exportAllFiles()">📦 Export All</button>
+                    <button class="btn-sm" onclick="formatCode()">✨ Format</button>
+                </div>
+            </div>
+            
+            <div class="file-explorer" id="fileExplorer">
+                <!-- File list will be populated here -->
+            </div>
+            
+            <div class="code-content">
+                <div class="code-preview" id="codePreview">
+# Your Terraform configuration will appear here
+# Drag blocks from the toolbox to start building
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="templateModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Infrastructure Templates</h3>
+                <button class="modal-close" onclick="closeModal('templateModal')">×</button>
+            </div>
+            <div id="templateContent">
+                <!-- Templates will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="projectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create New Project</h3>
+                <button class="modal-close" onclick="closeModal('projectModal')">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Project Name</label>
+                <input type="text" id="newProjectName" class="form-input" placeholder="My AWS Infrastructure">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea id="newProjectDescription" class="form-input form-textarea" placeholder="Describe your infrastructure project..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Template</label>
+                <select id="newProjectTemplate" class="form-input">
+                    <option value="blank">Blank Project</option>
+                    <option value="webapp">Web Application</option>
+                    <option value="microservices">Microservices</option>
+                    <option value="dataplatform">Data Platform</option>
+                    <option value="ml">ML Infrastructure</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('projectModal')">Cancel</button>
+                <button class="btn" onclick="createNewProject()">Create Project</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced Block Type System with Comprehensive AWS Services
+        class TerraformBlock {
+            constructor(type, name, allowedChildren = [], properties = {}, connections = []) {
+                this.type = type;
+                this.name = name;
+                this.allowedChildren = allowedChildren;
+                this.properties = properties;
+                this.children = [];
+                this.parent = null;
+                this.connections = connections; // For VPC peering, etc.
+                this.codeFiles = {}; // For Lambda, etc.
+            }
+
+            canAcceptChild(childType) {
+                return this.allowedChildren.includes(childType) || this.allowedChildren.includes('*');
+            }
+
+            addChild(child) {
+                if (this.canAcceptChild(child.type)) {
+                    this.children.push(child);
+                    child.parent = this;
+                    return true;
+                }
+                return false;
+            }
+
+            addConnection(targetBlock, connectionType) {
+                this.connections.push({ target: targetBlock, type: connectionType });
+                if (connectionType === 'peering') {
+                    targetBlock.connections.push({ target: this, type: 'peering' });
+                }
+            }
+
+            generateHCL(indent = 0) {
+                const spaces = '  '.repeat(indent);
+                let hcl = '';
+                
+                switch (this.type) {
+                    case 'provider': hcl += this.generateProviderHCL(spaces); break;
+                    case 'vpc': hcl += this.generateVpcHCL(spaces); break;
+                    case 'subnet': hcl += this.generateSubnetHCL(spaces); break;
+                    case 'instance': hcl += this.generateInstanceHCL(spaces); break;
+                    case 'lambda': hcl += this.generateLambdaHCL(spaces); break;
+                    case 'rds': hcl += this.generateRdsHCL(spaces); break;
+                    case 's3': hcl += this.generateS3HCL(spaces); break;
+                    case 'security_group': hcl += this.generateSecurityGroupHCL(spaces); break;
+                    case 'iam_role': hcl += this.generateIamRoleHCL(spaces); break;
+                    case 'glue_job': hcl += this.generateGlueJobHCL(spaces); break;
+                    case 'bedrock_model': hcl += this.generateBedrockModelHCL(spaces); break;
+                    case 'transcribe_job': hcl += this.generateTranscribeJobHCL(spaces); break;
+                    // Add other cases here
+                }
+
+                // Generate HCL for children, except for IAM roles which are handled within their parent resource
+                this.children.filter(c => c.type !== 'iam_role').forEach(child => {
+                    hcl += child.generateHCL(indent);
+                });
+
+                return hcl;
+            }
+
+            generateProviderHCL(spaces) {
+                return `${spaces}provider "aws" {\n` +
+                       `${spaces}  region = "${this.properties.region || 'us-west-2'}"\n` +
+                       `${spaces}}\n\n`;
+            }
+
+            generateVpcHCL(spaces) {
+                let hcl = `${spaces}resource "aws_vpc" "${this.properties.name || 'main_vpc'}" {\n`;
+                hcl += `${spaces}  cidr_block = "${this.properties.cidr || '10.0.0.0/16'}"\n`;
+                hcl += `${spaces}  enable_dns_hostnames = true\n`;
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+                return hcl;
+            }
+
+            generateSubnetHCL(spaces) {
+                let hcl = `${spaces}resource "aws_subnet" "${this.properties.name || 'main_subnet'}" {\n`;
+                hcl += `${spaces}  vpc_id     = aws_vpc.${this.parent?.properties?.name || 'main_vpc'}.id\n`;
+                hcl += `${spaces}  cidr_block = "${this.properties.cidr || '10.0.1.0/24'}"\n`;
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+                return hcl;
+            }
+            
+            generateInstanceHCL(spaces) {
+                const iamRole = this.children.find(c => c.type === 'iam_role');
+                let hcl = `${spaces}resource "aws_instance" "${this.properties.name || 'main_instance'}" {\n`;
+                hcl += `${spaces}  ami           = "${this.properties.ami || 'ami-0c94855ba95b798c7'}"\n`;
+                hcl += `${spaces}  instance_type = "${this.properties.instance_type || 't2.micro'}"\n`;
+                if (this.parent?.type === 'subnet') {
+                    hcl += `${spaces}  subnet_id     = aws_subnet.${this.parent.properties.name || 'main_subnet'}.id\n`;
+                }
+                if (iamRole) {
+                     hcl += `${spaces}  iam_instance_profile = aws_iam_instance_profile.${iamRole.properties.name}_profile.name\n`;
+                }
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+
+                if(iamRole) {
+                    hcl += iamRole.generateHCL(indent);
+                    hcl += `${spaces}resource "aws_iam_instance_profile" "${iamRole.properties.name}_profile" {\n`;
+                    hcl += `${spaces}  name = "${iamRole.properties.name}_profile"\n`;
+                    hcl += `${spaces}  role = aws_iam_role.${iamRole.properties.name}.name\n`;
+                    hcl += `${spaces}}\n\n`;
+                }
+                return hcl;
+            }
+
+            generateLambdaHCL(spaces) {
+                const iamRole = this.children.find(c => c.type === 'iam_role');
+                let hcl = `${spaces}resource "aws_lambda_function" "${this.properties.name || 'main_lambda'}" {\n`;
+                hcl += `${spaces}  function_name = "${this.properties.name}"\n`;
+                if (iamRole) {
+                    hcl += `${spaces}  role          = aws_iam_role.${iamRole.properties.name}.arn\n`;
+                }
+                hcl += `${spaces}  handler       = "${this.properties.handler || 'index.handler'}"\n`;
+                hcl += `${spaces}  runtime       = "${this.properties.runtime || 'python3.9'}"\n`;
+                hcl += `${spaces}  filename      = "lambda.zip"\n`; // Placeholder
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+
+                if(iamRole) {
+                    hcl += iamRole.generateHCL(indent);
+                }
+                return hcl;
+            }
+
+            generateRdsHCL(spaces) {
+                let hcl = `${spaces}resource "aws_db_instance" "${this.properties.name || 'main_db'}" {\n`;
+                hcl += `${spaces}  identifier           = "${this.properties.identifier || 'mydb'}"\n`;
+                hcl += `${spaces}  engine               = "${this.properties.engine || 'mysql'}"\n`;
+                hcl += `${spaces}  instance_class       = "${this.properties.instance_class || 'db.t3.micro'}"\n`;
+                hcl += `${spaces}  allocated_storage    = 20\n`;
+                hcl += `${spaces}  username             = "admin"\n`;
+                hcl += `${spaces}  password             = "yourpassword"\n`; // Placeholder
+                hcl += `${spaces}  skip_final_snapshot  = true\n`;
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+                return hcl;
+            }
+            
+            generateS3HCL(spaces) {
+                let hcl = `${spaces}resource "aws_s3_bucket" "${this.properties.name || 'main_bucket'}" {\n`;
+                hcl += `${spaces}  bucket = "${this.properties.bucket_name || 'my-unique-bucket-name'}"\n`;
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+                return hcl;
+            }
+            
+            generateSecurityGroupHCL(spaces) {
+                let hcl = `${spaces}resource "aws_security_group" "${this.properties.name || 'main_sg'}" {\n`;
+                hcl += `${spaces}  name_prefix = "${this.properties.name}-"\n`;
+                if (this.parent?.type === 'vpc') {
+                    hcl += `${spaces}  vpc_id      = aws_vpc.${this.parent.properties.name || 'main_vpc'}.id\n`;
+                }
+                hcl += `${spaces}  description = "${this.properties.description || 'Managed by Visual Editor'}"\n`;
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+                return hcl;
+            }
+
+            generateIamRoleHCL(spaces) {
+                let hcl = `${spaces}resource "aws_iam_role" "${this.properties.name || 'main_role'}" {\n`;
+                hcl += `${spaces}  name = "${this.properties.name}"\n`;
+                hcl += `${spaces}  assume_role_policy = jsonencode({\n`;
+                hcl += `${spaces}    Version = "2012-10-17",\n`;
+                hcl += `${spaces}    Statement = [\n`;
+                hcl += `${spaces}      {\n`;
+                hcl += `${spaces}        Action = "sts:AssumeRole",\n`;
+                hcl += `${spaces}        Effect = "Allow",\n`;
+                hcl += `${spaces}        Principal = {\n`;
+                hcl += `${spaces}          Service = "${this.properties.service || 'ec2.amazonaws.com'}"\n`;
+                hcl += `${spaces}        }\n`;
+                hcl += `${spaces}      }\n`;
+                hcl += `${spaces}    ]\n`;
+                hcl += `${spaces}  })\n`;
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+                return hcl;
+            }
+
+            generateGlueJobHCL(spaces) {
+                const iamRole = this.children.find(c => c.type === 'iam_role');
+                let hcl = `${spaces}resource "aws_glue_job" "${this.properties.name}" {\n`;
+                hcl += `${spaces}  name     = "${this.properties.name}"\n`;
+                if (iamRole) {
+                    hcl += `${spaces}  role_arn = aws_iam_role.${iamRole.properties.name}.arn\n`;
+                }
+                hcl += `${spaces}  command {\n`;
+                hcl += `${spaces}    script_location = "s3://aws-glue-scripts/your-script.py"\n`; // Placeholder
+                hcl += `${spaces}    python_version  = "3"\n`;
+                hcl += `${spaces}  }\n`;
+                hcl += `${spaces}  tags = {\n${spaces}    Name = "${this.properties.tags || this.properties.name}"\n${spaces}  }\n`;
+                hcl += `${spaces}}\n\n`;
+
+                if(iamRole) {
+                    hcl += iamRole.generateHCL(indent);
+                }
+                return hcl;
+            }
+
+            generateBedrockModelHCL(spaces) {
+                return `${spaces}# Terraform does not directly manage Bedrock models via a resource.\n`+
+                       `${spaces}# Instead, you would use data sources to reference them and grant permissions via IAM.\n`+
+                       `${spaces}data "aws_bedrock_foundation_model" "${this.properties.name}" {\n` +
+                       `${spaces}  model_id = "${this.properties.model_id || 'anthropic.claude-v2'}"\n` +
+                       `${spaces}}\n\n`;
+            }
+            
+            generateTranscribeJobHCL(spaces) {
+                return `${spaces}# aws_transcribe_medical_transcription_job or aws_transcribe_transcription_job\n`+
+                       `${spaces}# This is a complex resource, showing a simplified placeholder.\n`+
+                       `${spaces}resource "aws_transcribe_transcription_job" "${this.properties.name}" {\n`+
+                       `${spaces}  transcription_job_name = "${this.properties.name}"\n`+
+                       `${spaces}  language_code          = "en-US"\n`+
+                       `${spaces}  media_format           = "mp3"\n`+
+                       `${spaces}  media = {\n`+
+                       `${spaces}    media_file_uri = "s3://your-bucket/your-audio.mp3"\n`+
+                       `${spaces}  }\n`+
+                       `${spaces}}\n\n`;
+            }
+        }
+
+        let workspace;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            defineAllBlocks();
+            initWorkspace();
+            console.log("Visual Terraform Editor Initialized.");
+        });
+
+        function initWorkspace() {
+             const toolbox = {
+                "kind": "categoryToolbox",
+                "contents": [
+                    {
+                        "kind": "category", "name": "🌐 Core", "colour": "#3b82f6",
+                        "contents": [
+                            { "kind": "block", "type": "terraform_provider" },
+                            { "kind": "block", "type": "terraform_vpc" }
+                        ]
+                    },
+                    {
+                        "kind": "category", "name": "🔗 Network", "colour": "#10b981",
+                        "contents": [
+                            { "kind": "block", "type": "terraform_subnet" },
+                            { "kind": "block", "type": "terraform_security_group" }
+                        ]
+                    },
+                    {
+                        "kind": "category", "name": "💻 Compute", "colour": "#f59e0b",
+                        "contents": [
+                            { "kind": "block", "type": "terraform_instance" },
+                            { "kind": "block", "type": "terraform_lambda" }
+                        ]
+                    },
+                    {
+                        "kind": "category", "name": "🗃️ Storage & DB", "colour": "#ec4899",
+                        "contents": [
+                            { "kind": "block", "type": "terraform_s3" },
+                            { "kind": "block", "type": "terraform_rds" }
+                        ]
+                    },
+                    {
+                        "kind": "category", "name": "👤 Security", "colour": "#ef4444",
+                        "contents": [
+                            { "kind": "block", "type": "terraform_iam_role" }
+                        ]
+                    },
+                    {
+                        "kind": "category", "name": "🤖 AI & ML", "colour": "#9333ea",
+                        "contents": [
+                            { "kind": "block", "type": "terraform_bedrock_model" },
+                            { "kind": "block", "type": "terraform_glue_job" },
+                            { "kind": "block", "type": "terraform_transcribe_job" }
+                        ]
+                    }
+                ]
+            };
+
+            workspace = Blockly.inject('blocklyDiv', {
+                toolbox: toolbox,
+                grid: { spacing: 25, length: 3, colour: '#ddd', snap: true },
+                zoom: { controls: true, wheel: true, startScale: 0.9, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 },
+                trashcan: true,
+            });
+
+            workspace.addChangeListener(updateCode);
+        }
+        
+        function defineAllBlocks() {
+            // Provider Block
+            Blockly.Blocks['terraform_provider'] = {
+                init: function() {
+                    this.appendDummyInput().appendField("🌐 Provider AWS").appendField(new Blockly.FieldTextInput("us-west-2"), "REGION");
+                    this.setNextStatement(true, ["terraform_vpc", "terraform_s3", "terraform_iam_role"]);
+                    this.setColour(230);
+                }
+            };
+            
+            // VPC Block
+            Blockly.Blocks['terraform_vpc'] = {
+                init: function() {
+                    this.appendDummyInput().appendField("🏗️ VPC").appendField(new Blockly.FieldTextInput("main_vpc"), "NAME");
+                    this.appendDummyInput().appendField("CIDR").appendField(new Blockly.FieldTextInput("10.0.0.0/16"), "CIDR");
+                    this.appendStatementInput("CHILDREN").setCheck(["terraform_subnet", "terraform_security_group"]).appendField("Contains:");
+                    this.setPreviousStatement(true, null);
+                    this.setNextStatement(true, null);
+                    this.setColour(160);
+                }
+            };
+            
+            // Subnet Block
+            Blockly.Blocks['terraform_subnet'] = {
+                init: function() {
+                    this.appendDummyInput().appendField("🔗 Subnet").appendField(new Blockly.FieldTextInput("main_subnet"), "NAME");
+                    this.appendDummyInput().appendField("CIDR").appendField(new Blockly.FieldTextInput("10.0.1.0/24"), "CIDR");
+                    this.appendStatementInput("CHILDREN").setCheck(["terraform_instance", "terraform_lambda", "terraform_rds"]).appendField("Contains:");
+                    this.setPreviousStatement(true, ["terraform_subnet", "terraform_security_group"]);
+                    this.setNextStatement(true, ["terraform_subnet", "terraform_security_group"]);
+                    this.setColour(200);
+                }
+            };
+
+            // Instance Block
+             Blockly.Blocks['terraform_instance'] = {
+                init: function() {
+                    this.appendDummyInput().appendField("💻 EC2 Instance").appendField(new Blockly.FieldTextInput("web_server"), "NAME");
+                    this.appendDummyInput().appendField("Type").appendField(new Blockly.FieldTextInput("t2.micro"), "INSTANCE_TYPE");
+                    this.appendStatementInput("IAM_ROLE").setCheck("terraform_iam_role").appendField("Role:");
+                    this.setPreviousStatement(true, ["terraform_instance", "terraform_lambda", "terraform_rds"]);
+                    this.setNextStatement(true, ["terraform_instance", "terraform_lambda", "terraform_rds"]);
+                    this.setColour(120);
+                }
+            };
+            
+            // Lambda Function Block
+            Blockly.Blocks['terraform_lambda'] = {
+                init: function() {
+                    this.appendDummyInput().appendField("⚡ Lambda").appendField(new Blockly.FieldTextInput("my_function"), "NAME");
+                    this.appendDummyInput().appendField("Runtime").appendField(new Blockly.FieldTextInput("python3.9"), "RUNTIME");
+                    this.appendStatementInput("IAM_ROLE").setCheck("terraform_iam_role").appendField("Role:");
+                    this.setPreviousStatement(true, ["terraform_instance", "terraform_lambda", "terraform_rds"]);
+                    this.setNextStatement(true, ["terraform_instance", "terraform_lambda", "terraform_rds"]);
+                    this.setColour(120);
+                }
+            };
+
+            // IAM Role Block
+            Blockly.Blocks['terraform_iam_role'] = {
+                init: function() {
+                    this.appendDummyInput().appendField("👤 IAM Role").appendField(new Blockly.FieldTextInput("default_role"), "NAME");
+                    this.appendDummyInput().appendField("Service").appendField(new Blockly.FieldTextInput("ec2.amazonaws.com"), "SERVICE");
+                    this.setPreviousStatement(true, "terraform_iam_role");
+                    this.setNextStatement(true, "terraform_iam_role");
+                    this.setColour(65);
+                }
+            };
+
+            // S3, RDS, Security Group...
+            Blockly.Blocks['terraform_s3'] = { init: function() { this.appendDummyInput().appendField("📦 S3 Bucket").appendField(new Blockly.FieldTextInput("my_bucket"), "NAME"); this.appendDummyInput().appendField("Bucket Name").appendField(new Blockly.FieldTextInput("my-unique-bucket-name"), "BUCKET_NAME"); this.setPreviousStatement(true, null); this.setNextStatement(true, null); this.setColour(30); } };
+            Blockly.Blocks['terraform_rds'] = { init: function() { this.appendDummyInput().appendField("🗃️ RDS Instance").appendField(new Blockly.FieldTextInput("main_db"), "NAME"); this.setPreviousStatement(true, ["terraform_instance", "terraform_lambda", "terraform_rds"]); this.setNextStatement(true, ["terraform_instance", "terraform_lambda", "terraform_rds"]); this.setColour(30); } };
+            Blockly.Blocks['terraform_security_group'] = { init: function() { this.appendDummyInput().appendField("🔒 Security Group").appendField(new Blockly.FieldTextInput("web_sg"), "NAME"); this.setPreviousStatement(true, ["terraform_subnet", "terraform_security_group"]); this.setNextStatement(true, ["terraform_subnet", "terraform_security_group"]); this.setColour(290); } };
+            
+            // AI & ML Blocks
+            Blockly.Blocks['terraform_bedrock_model'] = { init: function() { this.appendDummyInput().appendField("🤖 Bedrock Model").appendField(new Blockly.FieldTextInput("claude_model"), "NAME"); this.appendDummyInput().appendField("Model ID").appendField(new Blockly.FieldTextInput("anthropic.claude-v2"), "MODEL_ID"); this.setPreviousStatement(true, null); this.setNextStatement(true, null); this.setColour(260); } };
+            Blockly.Blocks['terraform_glue_job'] = { init: function() { this.appendDummyInput().appendField("✨ Glue Job").appendField(new Blockly.FieldTextInput("my_glue_job"), "NAME"); this.appendStatementInput("IAM_ROLE").setCheck("terraform_iam_role").appendField("Role:"); this.setPreviousStatement(true, null); this.setNextStatement(true, null); this.setColour(260); } };
+            Blockly.Blocks['terraform_transcribe_job'] = { init: function() { this.appendDummyInput().appendField("🗣️ Transcribe Job").appendField(new Blockly.FieldTextInput("my_transcribe_job"), "NAME"); this.setPreviousStatement(true, null); this.setNextStatement(true, null); this.setColour(260); } };
+        }
+
+        function blockToTerraformObject(block) {
+            if (!block) return null;
+
+            const type = block.type.replace('terraform_', '');
+            const properties = {};
+            block.inputList.forEach(input => {
+                input.fieldRow.forEach(field => {
+                    if (field.name) {
+                        properties[field.name.toLowerCase()] = field.getValue();
+                    }
+                });
+            });
+
+            const terraformObj = new TerraformBlock(type, properties.name, ['*'], properties);
+
+            // Process children in statement inputs like 'CHILDREN' or 'IAM_ROLE'
+            block.inputList.forEach(input => {
+                if (input.type === Blockly.NEXT_STATEMENT || input.connection?.type === Blockly.NEXT_STATEMENT) {
+                    let childBlock = input.connection?.targetBlock();
+                    while (childBlock) {
+                        const childObj = blockToTerraformObject(childBlock);
+                        if (childObj) {
+                            terraformObj.addChild(childObj);
+                        }
+                        childBlock = childBlock.nextConnection?.targetBlock();
+                    }
+                }
+            });
+            
+            return terraformObj;
+        }
+
+        function generateCode() {
+            const topBlocks = workspace.getTopBlocks(true);
+            let hcl = '';
+            topBlocks.forEach(block => {
+                const tfObject = blockToTerraformObject(block);
+                if (tfObject) {
+                    hcl += tfObject.generateHCL();
+                }
+            });
+            return hcl || "# Drag blocks to start building your infrastructure.";
+        }
+        
+        function highlightHCL(code) {
+            return code
+                .replace(/#.*$/gm, '<span class="syntax-comment">$&</span>')
+                .replace(/\b(resource|provider|variable|output|data)\b/g, '<span class="syntax-keyword">$1</span>')
+                .replace(/"(aws_[\w_]+)"/g, '"<span class="syntax-resource">$1</span>"')
+                .replace(/(\w+)\s*=/g, '<span class="syntax-property">$1</span> =')
+                .replace(/"([^"]+)"/g, (match, p1) => {
+                    if (p1.startsWith('<span')) return match; // Avoid re-wrapping
+                    return `<span class="syntax-string">"${p1}"</span>`;
+                })
+                .replace(/\b(\d+)\b/g, '<span class="syntax-number">$1</span>');
+        }
+
+        function updateCode() {
+            const code = generateCode();
+            document.getElementById('codePreview').innerHTML = highlightHCL(code);
+        }
+        
+        function clearWorkspace() {
+            if(confirm('Are you sure you want to clear the workspace?')) {
+                workspace.clear();
+            }
+        }
+        
+        function loadExample() {
+            workspace.clear();
+            const xml_text = `<xml xmlns="https://developers.google.com/blockly/xml">
+              <block type="terraform_provider" x="25" y="25">
+                <next>
+                  <block type="terraform_vpc">
+                    <field name="NAME">production_vpc</field>
+                    <field name="CIDR">10.0.0.0/16</field>
+                    <statement name="CHILDREN">
+                      <block type="terraform_subnet">
+                        <field name="NAME">web_subnet</field>
+                        <field name="CIDR">10.0.1.0/24</field>
+                        <statement name="CHILDREN">
+                          <block type="terraform_instance">
+                            <field name="NAME">web_server_1</field>
+                            <field name="INSTANCE_TYPE">t2.micro</field>
+                            <statement name="IAM_ROLE">
+                              <block type="terraform_iam_role">
+                                <field name="NAME">ec2_web_role</field>
+                                <field name="SERVICE">ec2.amazonaws.com</field>
+                              </block>
+                            </statement>
+                          </block>
+                        </statement>
+                      </block>
+                    </statement>
+                  </block>
+                </next>
+              </block>
+            </xml>`;
+            const xml = Blockly.Xml.textToDom(xml_text);
+            Blockly.Xml.domToWorkspace(xml, workspace);
+        }
+
+        // --- Mock UI Functions ---
+        function createProject() { openModal('projectModal'); }
+        function cloneProject() { alert("Cloning project..."); }
+        function deleteProject() { if(confirm("Delete this project?")) alert("Project deleted."); }
+        function connectGit() { alert("Connecting to Git..."); }
+        function commitChanges() { alert("Committing changes..."); }
+        function pushChanges() { alert("Pushing to remote..."); }
+        function pullChanges() { alert("Pulling from remote..."); }
+        function saveProject() { alert("Project saved!"); }
+        function loadProject() { alert("Loading project..."); }
+        function validateAll() { alert("Validation complete: No issues found!"); }
+        function showTemplates() { openModal('templateModal'); }
+        function exportAllFiles() { alert("Exporting all files as a zip..."); }
+        function formatCode() { alert("Code formatted!"); }
+        function switchTab(tabName) { 
+            document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('codePreview').innerHTML = `# Switched to ${tabName} view.`;
+        }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function createNewProject() { 
+            const name = document.getElementById('newProjectName').value;
+            if(name) {
+                alert(`Project "${name}" created!`);
+                closeModal('projectModal');
+            } else {
+                alert("Project name is required.");
+            }
+        }
+    </script>
+</body>
+</html>

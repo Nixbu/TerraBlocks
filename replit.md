@@ -1,106 +1,135 @@
-# Visual Terraform Editor - Replit Guide
+# Visual Terraform Editor SaaS - Replit Guide
 
 ## Overview
 
-This project is a web-based visual Terraform editor that uses Blockly blocks (similar to Scratch) to build and manage infrastructure as code. Users can drag and drop infrastructure components to visually design their cloud architecture, with real-time Terraform HCL code generation.
+This project has been transformed from a simple visual Terraform editor into a comprehensive SaaS platform. The platform provides a web-based visual Terraform editor using Blockly blocks (similar to Scratch) with enterprise features including user authentication, team collaboration, project management, Git integration, subscription billing through Stripe, and cloud deployment capabilities.
 
 ## System Architecture
 
-The application follows a full-stack architecture with clear separation between frontend, backend, and shared components:
+### SaaS Platform Features
+- **Multi-tenant architecture** with user authentication via Replit Auth
+- **Subscription-based billing** with Stripe integration (Free, Pro, Enterprise tiers)
+- **Team collaboration** with project sharing and role-based access
+- **Git integration** for version control and repository management
+- **Project templates** and example infrastructures
+- **Cloud deployment** with status tracking and cost estimation
+- **API usage tracking** for billing and analytics
 
 ### Frontend Architecture
 - **React 18** with TypeScript for the user interface
+- **Enhanced UI Components**: Advanced sidebar, multi-tab code editor, comprehensive toolbar
 - **Vite** as the build tool and development server
 - **Tailwind CSS** for styling with shadcn/ui component library
-- **Blockly** for the visual block-based editor
+- **Blockly** for the visual block-based editor with AI/ML resources
 - **TanStack Query** for state management and API calls
 - **Wouter** for client-side routing
 
 ### Backend Architecture
 - **Express.js** server with TypeScript
-- **RESTful API** design for project management
-- **In-memory storage** (MemStorage) with interface for future database integration
-- **Middleware** for request logging and error handling
+- **PostgreSQL database** with Drizzle ORM for production data persistence
+- **Replit Authentication** with session management
+- **Stripe payment processing** for subscription management
+- **RESTful API** design for all platform features
+- **Database Storage** replacing in-memory storage for production use
 
-### Data Storage
-- **Drizzle ORM** configured for PostgreSQL (schema defined but using in-memory storage currently)
-- **Schema** includes users and terraform_projects tables
-- Database migrations handled through drizzle-kit
+### Enhanced Data Storage
+- **PostgreSQL** as primary database with full schema for SaaS features
+- **User management** with subscription tiers and Stripe integration
+- **Project management** with collaboration and sharing features
+- **Template system** with official and community templates
+- **Deployment tracking** with history and cost estimation
+- **API usage analytics** for billing and monitoring
 
-## Key Components
+## Key Enhanced Components
 
-### Visual Editor Components
-- **BlocklyWorkspace**: Main canvas for drag-and-drop block editing
-- **BlockPalette**: Sidebar containing available infrastructure blocks
-- **CodePreview**: Real-time HCL code generation and preview
+### Advanced UI Components
+- **ProjectSidebar**: Project management, Git integration, template selection
+- **EnhancedBlocklyWorkspace**: Multi-category blocks including AI/ML resources
+- **EnhancedCodePreview**: Multi-file tabs with syntax highlighting and export
+- **EnhancedToolbar**: Comprehensive actions including validation and deployment
 
-### Infrastructure Block Types
-- **VPC Block**: Root network container with CIDR configuration
-- **Subnet Block**: Network segments with availability zone selection
-- **Security Group Block**: Firewall rules configuration
-- **EC2 Instance Block**: Virtual server configuration
-- **IAM Role Block**: Access control configuration
+### Expanded Infrastructure Block Types
+- **Core**: Provider AWS, VPC configuration
+- **Network**: Subnet, Security Group blocks
+- **Compute**: EC2 Instance, Lambda Function blocks
+- **Storage & DB**: S3 Bucket, RDS Instance blocks
+- **Security**: IAM Role configuration
+- **AI & ML**: Bedrock Model, Glue Job, Transcribe Job blocks
 
-### Block Hierarchy & Nesting
-- VPC blocks contain subnet and security group blocks
-- Subnet blocks can contain EC2 instances
-- Hierarchical containment enforced through Blockly's type checking
-- Parent-child relationships reflect real Terraform resource dependencies
+### SaaS Database Schema
+- **Users**: Authentication, subscription management, Stripe integration
+- **Projects**: User-associated with collaboration and sharing
+- **Templates**: Official and community infrastructure templates
+- **Deployments**: History tracking with cost and resource metrics
+- **Collaborators**: Team features with role-based access
+- **API Usage**: Billing and analytics tracking
 
-### HCL Code Generation
-- Real-time translation from block workspace to valid Terraform HCL
-- Auto-generated outputs for key resource attributes
-- Maintains proper Terraform resource naming conventions
-- Live preview updates on any workspace changes
+### Advanced Features
+- **Multi-file code generation** (main.tf, variables.tf, outputs.tf, lambda.py)
+- **Project templates** for different use cases (webapp, microservices, data platform, ML)
+- **Git repository integration** with commit, push, pull operations
+- **Real-time validation** and deployment status tracking
+- **Cost estimation** and resource planning
+- **Team collaboration** with project sharing
 
-## Data Flow
+## Data Flow (Enhanced)
 
-1. **Block Interaction**: Users drag blocks from palette to workspace
-2. **Workspace Updates**: Blockly triggers change events on block modifications
-3. **HCL Generation**: Custom generator translates blocks to Terraform code
-4. **Project Persistence**: Workspace data saved via REST API
-5. **Code Export**: Generated HCL can be copied or downloaded
+1. **User Authentication**: Replit Auth with session management
+2. **Project Management**: CRUD operations with user association
+3. **Block Interaction**: Enhanced drag-and-drop with AI/ML resources
+4. **Multi-file Generation**: Complete Terraform project structure
+5. **Git Integration**: Version control with repository sync
+6. **Deployment Pipeline**: Status tracking with cost estimation
+7. **Collaboration**: Real-time sharing with role-based access
+8. **Billing Integration**: Usage tracking with Stripe subscriptions
 
-## External Dependencies
+## External Dependencies (Enhanced)
 
-### Core Libraries
-- **Blockly**: Visual programming editor (loaded via CDN)
+### SaaS Platform
+- **Replit Authentication**: Multi-user support with OpenID Connect
+- **Stripe**: Subscription billing and payment processing
+- **PostgreSQL**: Production database with Neon integration
+
+### Enhanced Core Libraries
+- **Blockly**: Visual programming editor with extended AWS resources
 - **@neondatabase/serverless**: PostgreSQL driver for Neon database
-- **Drizzle ORM**: Type-safe database toolkit
-- **shadcn/ui**: Component library built on Radix UI primitives
+- **Drizzle ORM**: Type-safe database toolkit with migration support
+- **shadcn/ui**: Component library for professional SaaS interface
 
-### Development Tools
-- **TypeScript**: Type safety across the entire codebase
-- **ESBuild**: Fast bundling for production builds
-- **PostCSS**: CSS processing with Tailwind
+### Platform Integration
+- **Git repositories**: Version control integration
+- **AWS services**: Extended support for AI/ML and data services
+- **Cost estimation**: Resource planning and budget management
 
-### Cloud Integration
-- Designed for AWS infrastructure (EC2, VPC, IAM)
-- Extensible for other cloud providers
-- Terraform HCL output compatible with standard Terraform workflows
+## Deployment Strategy (Production SaaS)
 
-## Deployment Strategy
+### Multi-tenant Environment
+- **User isolation** with database-level security
+- **Subscription management** with Stripe webhooks
+- **Session storage** in PostgreSQL for scalability
+- **API rate limiting** based on subscription tiers
 
-### Development Environment
-- **Vite dev server** for frontend with HMR
-- **tsx** for running TypeScript server directly
-- **Replit integration** with error overlays and cartographer
+### Production Features
+- **Database migrations** via Drizzle with version control
+- **Environment configuration** for multi-stage deployment
+- **Monitoring and analytics** for usage tracking
+- **Cost optimization** with resource estimation
 
-### Production Build
-- **Vite build** generates optimized frontend assets
-- **ESBuild** bundles server code for Node.js
-- Static assets served from Express server
-- Database migrations via `drizzle-kit push`
+## Recent Changes
 
-### Environment Configuration
-- Database URL required via `DATABASE_URL` environment variable
-- Neon database integration ready for production deployment
-- Session storage configured for PostgreSQL with connect-pg-simple
-
-## Changelog
-
-- June 30, 2025. Initial setup
+### June 30, 2025 - SaaS Platform Transformation
+- **Enhanced UI**: Complete redesign with professional SaaS interface
+- **Database Schema**: Full PostgreSQL schema for multi-tenant SaaS
+- **Authentication**: Replit Auth integration with user management
+- **Subscription Billing**: Stripe integration with tiered pricing
+- **Team Features**: Project collaboration with role-based access
+- **AI/ML Blocks**: Extended AWS resource support including Bedrock, Glue, Transcribe
+- **Git Integration**: Version control with repository management
+- **Multi-file Support**: Complete Terraform project generation
+- **Deployment Pipeline**: Status tracking with cost estimation
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Architecture: Full-stack SaaS platform with enterprise features.
+Focus: Professional multi-tenant application with subscription billing.
