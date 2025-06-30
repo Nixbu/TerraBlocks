@@ -137,3 +137,63 @@
 .code-preview::-webkit-scrollbar-thumb:hover {
   background: hsl(20, 14.3%, 4.1%);
 }
+
+/* Blockly Workspace Styles */
+.workspace-panel {
+  flex: 1;
+  position: relative;
+  background: hsl(var(--background));
+  border-radius: 15px 0 0 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background: hsl(var(--muted) / 0.1);
+  border-bottom: 1px solid hsl(var(--border));
+  border-radius: 15px 0 0 0;
+}
+
+.btn {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px hsl(var(--primary) / 0.3);
+}
+
+.btn:hover {
+  background: hsl(var(--primary) / 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px hsl(var(--primary) / 0.4);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.status-indicator {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-valid {
+  background: hsl(142 76% 36% / 0.2);
+  color: hsl(142 76% 36%);
+}
+
+.status-invalid {
+  background: hsl(0 84% 60% / 0.2);
+  color: hsl(0 84% 60%);
+}

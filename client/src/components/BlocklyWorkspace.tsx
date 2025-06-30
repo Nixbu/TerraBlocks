@@ -1,6 +1,5 @@
-import { useEffect, useRef } from "react";
-import { initializeBlockly } from "@/lib/blockly/blocks";
-import { generateTerraformHCL } from "@/lib/blockly/generator";
+import { useEffect, useRef, useState } from 'react';
+import { initializeBlockly } from '@/lib/blockly/blocks';
 
 interface BlocklyWorkspaceProps {
   workspaceData: any;
@@ -9,82 +8,159 @@ interface BlocklyWorkspaceProps {
 }
 
 export default function BlocklyWorkspace({ workspaceData, onWorkspaceChange, onHclGenerated }: BlocklyWorkspaceProps) {
-  const blocklyDiv = useRef<HTMLDivElement>(null);
+  const blocklyDivRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<any>(null);
+  const generateCodeRef = useRef<any>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (blocklyDiv.current && !workspaceRef.current) {
-      workspaceRef.current = initializeBlockly(blocklyDiv.current);
+    const initBlockly = () => {
+      if (!blocklyDivRef.current || !window.Blockly) {
+        console.log('Waiting for Blockly to load...');
+        return;
+      }
 
-      // Listen for workspace changes
-      workspaceRef.current.addChangeListener((event: any) => {
-        // Skip events during programmatic changes
-        if (event.type === "finished_loading") return;
-
-        try {
-          // Generate HCL code
-          const hcl = generateTerraformHCL(workspaceRef.current);
-          onHclGenerated(hcl, true);
-
-          // Save workspace data
-          const state = (window as any).Blockly.serialization.workspaces.save(workspaceRef.current);
-          onWorkspaceChange({ state });
-        } catch (error) {
-          console.error("Error generating HCL:", error);
-          onHclGenerated("", false);
-        }
-      });
-
-      // Blockly handles its own drag and drop from the toolbox
-    }
-
-    // Load workspace data if provided
-    if (workspaceData && workspaceRef.current) {
       try {
-        if (workspaceData.state) {
-          (window as any).Blockly.serialization.workspaces.load(workspaceData.state, workspaceRef.current);
-        } else if (workspaceData.xml) {
-          // Legacy XML format support
-          const xmlDom = (window as any).Blockly.utils.xml.textToDom(workspaceData.xml);
-          (window as any).Blockly.Xml.domToWorkspace(xmlDom, workspaceRef.current);
+        console.log('Initializing Blockly workspace...');
+        const result = initializeBlockly(blocklyDivRef.current);
+        
+        if (result) {
+          workspaceRef.current = result.workspace;
+          generateCodeRef.current = result.generateTerraformCode;
+          
+          // Add change listener
+          workspaceRef.current.addChangeListener(() => {
+            updateCodePreview();
+            
+            // Save workspace state
+            const state = window.Blockly.serialization.workspaces.save(workspaceRef.current);
+            onWorkspaceChange(state);
+          });
+
+          setIsReady(true);
+          console.log('Blockly workspace initialized successfully');
+          
+          // Initial code generation
+          updateCodePreview();
         }
       } catch (error) {
-        console.error("Error loading workspace data:", error);
-      }
-    }
-
-    return () => {
-      if (workspaceRef.current) {
-        workspaceRef.current.dispose();
-        workspaceRef.current = null;
+        console.error('Error initializing Blockly:', error);
       }
     };
-  }, []);
 
+    const updateCodePreview = () => {
+      if (workspaceRef.current && generateCodeRef.current) {
+        const code = generateCodeRef.current(workspaceRef.current);
+        const isValid = code && code.trim() !== '' && !code.includes('# No blocks in workspace');
+        onHclGenerated(code, isValid);
+      }
+    };
+
+    // Check if Blockly is loaded
+    if (window.Blockly) {
+      initBlockly();
+    } else {
+      // Wait for Blockly to load
+      const checkBlockly = setInterval(() => {
+        if (window.Blockly) {
+          clearInterval(checkBlockly);
+          initBlockly();
+        }
+      }, 100);
+
+      return () => clearInterval(checkBlockly);
+    }
+  }, [onWorkspaceChange, onHclGenerated]);
+
+  // Load workspace data when it changes
   useEffect(() => {
-    if (workspaceData && workspaceRef.current) {
+    if (workspaceRef.current && workspaceData && isReady) {
       try {
         workspaceRef.current.clear();
-        if (workspaceData.state) {
-          (window as any).Blockly.serialization.workspaces.load(workspaceData.state, workspaceRef.current);
-        } else if (workspaceData.xml) {
-          // Legacy XML format support
-          const xmlDom = (window as any).Blockly.utils.xml.textToDom(workspaceData.xml);
-          (window as any).Blockly.Xml.domToWorkspace(xmlDom, workspaceRef.current);
-        }
+        window.Blockly.serialization.workspaces.load(workspaceData, workspaceRef.current);
       } catch (error) {
-        console.error("Error loading workspace data:", error);
+        console.error('Error loading workspace data:', error);
       }
     }
-  }, [workspaceData]);
+  }, [workspaceData, isReady]);
+
+  const clearWorkspace = () => {
+    if (workspaceRef.current) {
+      workspaceRef.current.clear();
+    }
+  };
+
+  const loadExample = () => {
+    if (!workspaceRef.current) return;
+    
+    workspaceRef.current.clear();
+    
+    // Create example infrastructure using XML
+    const providerXml = '<block type="terraform_provider" x="20" y="20"><field name="PROVIDER">aws</field><field name="REGION">us-west-2</field></block>';
+    
+    const vpcXml = `<block type="terraform_vpc" x="20" y="120">
+        <field name="NAME">main_vpc</field>
+        <field name="CIDR">10.0.0.0/16</field>
+        <field name="DNS_HOSTNAMES">TRUE</field>
+        <field name="TAGS">Production VPC</field>
+        <statement name="SUBNETS">
+            <block type="terraform_subnet">
+                <field name="NAME">web_subnet</field>
+                <field name="CIDR">10.0.1.0/24</field>
+                <field name="AZ">us-west-2a</field>
+                <field name="MAP_PUBLIC_IP">TRUE</field>
+                <field name="TAGS">Web Subnet</field>
+                <statement name="INSTANCES">
+                    <block type="terraform_instance">
+                        <field name="NAME">web_server</field>
+                        <field name="AMI">ami-0c94855ba95b798c7</field>
+                        <field name="INSTANCE_TYPE">t2.micro</field>
+                        <field name="KEY_NAME">my-key-pair</field>
+                        <field name="TAGS">Web Server</field>
+                        <statement name="IAM_ROLES">
+                            <block type="terraform_iam_role">
+                                <field name="NAME">web_role</field>
+                                <field name="ROLE_NAME">WebServerRole</field>
+                                <field name="SERVICE">ec2.amazonaws.com</field>
+                            </block>
+                        </statement>
+                    </block>
+                </statement>
+                <next>
+                    <block type="terraform_security_group">
+                        <field name="NAME">web_sg</field>
+                        <field name="NAME_PREFIX">web-security-group</field>
+                        <field name="DESCRIPTION">Security group for web servers</field>
+                    </block>
+                </next>
+            </block>
+        </statement>
+    </block>`;
+    
+    try {
+      // Load the blocks
+      const providerBlock = window.Blockly.Xml.textToDom(providerXml);
+      const vpcBlock = window.Blockly.Xml.textToDom(vpcXml);
+      
+      window.Blockly.Xml.domToBlock(providerBlock.firstChild, workspaceRef.current);
+      window.Blockly.Xml.domToBlock(vpcBlock.firstChild, workspaceRef.current);
+    } catch (error) {
+      console.error('Error loading example:', error);
+    }
+  };
 
   return (
-    <div className="flex-1 relative">
-      <div
-        ref={blocklyDiv}
-        className="w-full h-full workspace-grid"
-        style={{ minHeight: "400px" }}
-      />
+    <div className="workspace-panel">
+      <div className="toolbar">
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn" onClick={clearWorkspace}>Clear All</button>
+          <button className="btn" onClick={loadExample}>Load Example</button>
+        </div>
+        <div className={`status-indicator ${isReady ? 'status-valid' : 'status-invalid'}`}>
+          {isReady ? 'Ready' : 'Loading...'}
+        </div>
+      </div>
+      <div ref={blocklyDivRef} style={{ width: '100%', height: 'calc(100% - 60px)' }} />
     </div>
   );
 }

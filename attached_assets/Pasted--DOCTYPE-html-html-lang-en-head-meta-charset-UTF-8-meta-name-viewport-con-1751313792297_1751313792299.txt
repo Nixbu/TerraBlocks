@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Terraform Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/blockly.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/blocks.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/javascript.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            display: flex;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            margin: 10px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .workspace-panel {
+            flex: 1;
+            position: relative;
+            background: #f8fafc;
+            border-radius: 15px 0 0 15px;
+        }
+
+        .code-panel {
+            width: 400px;
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 0 15px 15px 0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+            position: relative;
+        }
+
+        .panel-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #06b6d4, #3b82f6, #8b5cf6);
+        }
+
+        .code-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #0f172a;
+        }
+
+        .code-preview {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            min-height: 200px;
+            color: #e2e8f0;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(59, 130, 246, 0.1);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        #blocklyDiv {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .status-indicator {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-valid {
+            background: rgba(34, 197, 94, 0.2);
+            color: #15803d;
+        }
+
+        .status-invalid {
+            background: rgba(239, 68, 68, 0.2);
+            color: #dc2626;
+        }
+
+        .syntax-keyword { color: #8b5cf6; }
+        .syntax-string { color: #10b981; }
+        .syntax-number { color: #f59e0b; }
+        .syntax-comment { color: #6b7280; }
+        .syntax-resource { color: #06b6d4; }
+        .syntax-property { color: #ec4899; }
+
+        /* Custom scrollbar */
+        .code-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .code-content::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        .code-content::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        .code-content::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        @media (max-width: 1024px) {
+            .code-panel {
+                width: 350px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .editor-container {
+                flex-direction: column;
+                margin: 5px;
+            }
+            
+            .code-panel {
+                width: 100%;
+                height: 300px;
+            }
+            
+            .workspace-panel {
+                height: calc(100vh - 320px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <div class="workspace-panel">
+            <div class="toolbar">
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" onclick="clearWorkspace()">Clear All</button>
+                    <button class="btn" onclick="exportCode()">Export HCL</button>
+                    <button class="btn" onclick="loadExample()">Load Example</button>
+                </div>
+                <div class="status-indicator status-valid" id="statusIndicator">
+                    Ready
+                </div>
+            </div>
+            <div id="blocklyDiv"></div>
+        </div>
+        
+        <div class="code-panel">
+            <div class="panel-header">
+                Generated Terraform Code
+            </div>
+            <div class="code-content">
+                <div class="code-preview" id="codePreview">
+# Your Terraform configuration will appear here
+# Drag blocks from the toolbox to start building
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Block Type Definitions - OOP Class Hierarchy
+        class TerraformBlock {
+            constructor(type, name, allowedChildren = [], properties = {}) {
+                this.type = type;
+                this.name = name;
+                this.allowedChildren = allowedChildren;
+                this.properties = properties;
+                this.children = [];
+                this.parent = null;
+            }
+
+            canAcceptChild(childType) {
+                return this.allowedChildren.includes(childType) || this.allowedChildren.includes('*');
+            }
+
+            addChild(child) {
+                if (this.canAcceptChild(child.type)) {
+                    this.children.push(child);
+                    child.parent = this;
+                    return true;
+                }
+                return false;
+            }
+
+            generateHCL(indent = 0) {
+                const spaces = '  '.repeat(indent);
+                let hcl = '';
+                
+                if (this.type === 'provider') {
+                    hcl += `${spaces}provider "${this.properties.provider || 'aws'}" {\n`;
+                    if (this.properties.region) {
+                        hcl += `${spaces}  region = "${this.properties.region}"\n`;
+                    }
+                    hcl += `${spaces}}\n\n`;
+                } else if (this.type === 'vpc') {
+                    hcl += `${spaces}resource "aws_vpc" "${this.properties.name || 'main_vpc'}" {\n`;
+                    hcl += `${spaces}  cidr_block = "${this.properties.cidr || '10.0.0.0/16'}"\n`;
+                    if (this.properties.enable_dns_hostnames) {
+                        hcl += `${spaces}  enable_dns_hostnames = ${this.properties.enable_dns_hostnames}\n`;
+                    }
+                    if (this.properties.tags) {
+                        hcl += `${spaces}  tags = {\n`;
+                        hcl += `${spaces}    Name = "${this.properties.tags}"\n`;
+                        hcl += `${spaces}  }\n`;
+                    }
+                    hcl += `${spaces}}\n\n`;
+                } else if (this.type === 'subnet') {
+                    hcl += `${spaces}resource "aws_subnet" "${this.properties.name || 'main_subnet'}" {\n`;
+                    hcl += `${spaces}  vpc_id     = aws_vpc.${this.parent?.properties?.name || 'main_vpc'}.id\n`;
+                    hcl += `${spaces}  cidr_block = "${this.properties.cidr || '10.0.1.0/24'}"\n`;
+                    if (this.properties.availability_zone) {
+                        hcl += `${spaces}  availability_zone = "${this.properties.availability_zone}"\n`;
+                    }
+                    if (this.properties.map_public_ip) {
+                        hcl += `${spaces}  map_public_ip_on_launch = ${this.properties.map_public_ip}\n`;
+                    }
+                    if (this.properties.tags) {
+                        hcl += `${spaces}  tags = {\n`;
+                        hcl += `${spaces}    Name = "${this.properties.tags}"\n`;
+                        hcl += `${spaces}  }\n`;
+                    }
+                    hcl += `${spaces}}\n\n`;
+                } else if (this.type === 'instance') {
+                    hcl += `${spaces}resource "aws_instance" "${this.properties.name || 'main_instance'}" {\n`;
+                    hcl += `${spaces}  ami           = "${this.properties.ami || 'ami-0c94855ba95b798c7'}"\n`;
+                    hcl += `${spaces}  instance_type = "${this.properties.instance_type || 't2.micro'}"\n`;
+                    if (this.parent?.type === 'subnet') {
+                        hcl += `${spaces}  subnet_id     = aws_subnet.${this.parent.properties.name || 'main_subnet'}.id\n`;
+                    }
+                    if (this.properties.key_name) {
+                        hcl += `${spaces}  key_name      = "${this.properties.key_name}"\n`;
+                    }
+                    if (this.properties.tags) {
+                        hcl += `${spaces}  tags = {\n`;
+                        hcl += `${spaces}    Name = "${this.properties.tags}"\n`;
+                        hcl += `${spaces}  }\n`;
+                    }
+                    hcl += `${spaces}}\n\n`;
+                } else if (this.type === 'security_group') {
+                    hcl += `${spaces}resource "aws_security_group" "${this.properties.name || 'main_sg'}" {\n`;
+                    hcl += `${spaces}  name_prefix = "${this.properties.name_prefix || 'terraform-sg'}"\n`;
+                    if (this.parent?.type === 'vpc') {
+                        hcl += `${spaces}  vpc_id      = aws_vpc.${this.parent.properties.name || 'main_vpc'}.id\n`;
+                    }
+                    if (this.properties.description) {
+                        hcl += `${spaces}  description = "${this.properties.description}"\n`;
+                    }
+                    hcl += `${spaces}}\n\n`;
+                } else if (this.type === 'iam_role') {
+                    hcl += `${spaces}resource "aws_iam_role" "${this.properties.name || 'main_role'}" {\n`;
+                    hcl += `${spaces}  name = "${this.properties.role_name || 'terraform-role'}"\n`;
+                    hcl += `${spaces}  assume_role_policy = jsonencode({\n`;
+                    hcl += `${spaces}    Version = "2012-10-17"\n`;
+                    hcl += `${spaces}    Statement = [\n`;
+                    hcl += `${spaces}      {\n`;
+                    hcl += `${spaces}        Action = "sts:AssumeRole"\n`;
+                    hcl += `${spaces}        Effect = "Allow"\n`;
+                    hcl += `${spaces}        Principal = {\n`;
+                    hcl += `${spaces}          Service = "${this.properties.service || 'ec2.amazonaws.com'}"\n`;
+                    hcl += `${spaces}        }\n`;
+                    hcl += `${spaces}      }\n`;
+                    hcl += `${spaces}    ]\n`;
+                    hcl += `${spaces}  })\n`;
+                    hcl += `${spaces}}\n\n`;
+                }
+
+                // Generate HCL for children
+                this.children.forEach(child => {
+                    hcl += child.generateHCL(indent);
+                });
+
+                return hcl;
+            }
+        }
+
+        // Blockly Block Definitions
+        function defineBlocks() {
+            // Provider Block
+            Blockly.Blocks['terraform_provider'] = {
+                init: function() {
+                    this.appendDummyInput()
+                        .appendField("🌐 Provider")
+                        .appendField(new Blockly.FieldDropdown([
+                            ["AWS", "aws"],
+                            ["Azure", "azurerm"],
+                            ["GCP", "google"]
+                        ]), "PROVIDER");
+                    this.appendDummyInput()
+                        .appendField("Region")
+                        .appendField(new Blockly.FieldTextInput("us-west-2"), "REGION");
+                    this.setColour(230);
+                    this.setTooltip("Configure cloud provider");
+                    this.setHelpUrl("");
+                }
+            };
+
+            // VPC Block (Container)
+            Blockly.Blocks['terraform_vpc'] = {
+                init: function() {
+                    this.appendDummyInput()
+                        .appendField("🏗️ VPC")
+                        .appendField(new Blockly.FieldTextInput("main_vpc"), "NAME");
+                    this.appendDummyInput()
+                        .appendField("CIDR Block")
+                        .appendField(new Blockly.FieldTextInput("10.0.0.0/16"), "CIDR");
+                    this.appendDummyInput()
+                        .appendField("Enable DNS Hostnames")
+                        .appendField(new Blockly.FieldCheckbox("TRUE"), "DNS_HOSTNAMES");
+                    this.appendDummyInput()
+                        .appendField("Tags")
+                        .appendField(new Blockly.FieldTextInput("Main VPC"), "TAGS");
+                    this.appendStatementInput("SUBNETS")
+                        .setCheck(["terraform_subnet", "terraform_security_group"])
+                        .appendField("Contains:");
+                    this.setColour(160);
+                    this.setTooltip("AWS VPC - Virtual Private Cloud");
+                    this.setHelpUrl("");
+                }
+            };
+
+            // Subnet Block
+            Blockly.Blocks['terraform_subnet'] = {
+                init: function() {
+                    this.appendDummyInput()
+                        .appendField("🔗 Subnet")
+                        .appendField(new Blockly.FieldTextInput("main_subnet"), "NAME");
+                    this.appendDummyInput()
+                        .appendField("CIDR Block")
+                        .appendField(new Blockly.FieldTextInput("10.0.1.0/24"), "CIDR");
+                    this.appendDummyInput()
+                        .appendField("Availability Zone")
+                        .appendField(new Blockly.FieldDropdown([
+                            ["us-west-2a", "us-west-2a"],
+                            ["us-west-2b", "us-west-2b"],
+                            ["us-west-2c", "us-west-2c"]
+                        ]), "AZ");
+                    this.appendDummyInput()
+                        .appendField("Map Public IP")
+                        .appendField(new Blockly.FieldCheckbox("FALSE"), "MAP_PUBLIC_IP");
+                    this.appendDummyInput()
+                        .appendField("Tags")
+                        .appendField(new Blockly.FieldTextInput("Main Subnet"), "TAGS");
+                    this.appendStatementInput("INSTANCES")
+                        .setCheck(["terraform_instance"])
+                        .appendField("Contains:");
+                    this.setPreviousStatement(true, ["terraform_subnet"]);
+                    this.setNextStatement(true, ["terraform_subnet", "terraform_security_group"]);
+                    this.setColour(200);
+                    this.setTooltip("AWS Subnet");
+                    this.setHelpUrl("");
+                }
+            };
+
+            // EC2 Instance Block
+            Blockly.Blocks['terraform_instance'] = {
+                init: function() {
+                    this.appendDummyInput()
+                        .appendField("💻 EC2 Instance")
+                        .appendField(new Blockly.FieldTextInput("web_server"), "NAME");
+                    this.appendDummyInput()
+                        .appendField("AMI")
+                        .appendField(new Blockly.FieldTextInput("ami-0c94855ba95b798c7"), "AMI");
+                    this.appendDummyInput()
+                        .appendField("Instance Type")
+                        .appendField(new Blockly.FieldDropdown([
+                            ["t2.micro", "t2.micro"],
+                            ["t2.small", "t2.small"],
+                            ["t2.medium", "t2.medium"],
+                            ["t3.micro", "t3.micro"],
+                            ["t3.small", "t3.small"]
+                        ]), "INSTANCE_TYPE");
+                    this.appendDummyInput()
+                        .appendField("Key Name")
+                        .appendField(new Blockly.FieldTextInput("my-key"), "KEY_NAME");
+                    this.appendDummyInput()
+                        .appendField("Tags")
+                        .appendField(new Blockly.FieldTextInput("Web Server"), "TAGS");
+                    this.appendStatementInput("IAM_ROLES")
+                        .setCheck(["terraform_iam_role"])
+                        .appendField("IAM Roles:");
+                    this.setPreviousStatement(true, ["terraform_instance"]);
+                    this.setNextStatement(true, ["terraform_instance"]);
+                    this.setColour(120);
+                    this.setTooltip("AWS EC2 Instance");
+                    this.setHelpUrl("");
+                }
+            };
+
+            // Security Group Block
+            Blockly.Blocks['terraform_security_group'] = {
+                init: function() {
+                    this.appendDummyInput()
+                        .appendField("🔒 Security Group")
+                        .appendField(new Blockly.FieldTextInput("web_sg"), "NAME");
+                    this.appendDummyInput()
+                        .appendField("Name Prefix")
+                        .appendField(new Blockly.FieldTextInput("web-sg"), "NAME_PREFIX");
+                    this.appendDummyInput()
+                        .appendField("Description")
+                        .appendField(new Blockly.FieldTextInput("Web server security group"), "DESCRIPTION");
+                    this.setPreviousStatement(true, ["terraform_security_group"]);
+                    this.setNextStatement(true, ["terraform_subnet", "terraform_security_group"]);
+                    this.setColour(290);
+                    this.setTooltip("AWS Security Group");
+                    this.setHelpUrl("");
+                }
+            };
+
+            // IAM Role Block
+            Blockly.Blocks['terraform_iam_role'] = {
+                init: function() {
+                    this.appendDummyInput()
+                        .appendField("👤 IAM Role")
+                        .appendField(new Blockly.FieldTextInput("ec2_role"), "NAME");
+                    this.appendDummyInput()
+                        .appendField("Role Name")
+                        .appendField(new Blockly.FieldTextInput("EC2Role"), "ROLE_NAME");
+                    this.appendDummyInput()
+                        .appendField("Service")
+                        .appendField(new Blockly.FieldDropdown([
+                            ["ec2.amazonaws.com", "ec2.amazonaws.com"],
+                            ["lambda.amazonaws.com", "lambda.amazonaws.com"],
+                            ["ecs-tasks.amazonaws.com", "ecs-tasks.amazonaws.com"]
+                        ]), "SERVICE");
+                    this.setPreviousStatement(true, ["terraform_iam_role"]);
+                    this.setNextStatement(true, ["terraform_iam_role"]);
+                    this.setColour(65);
+                    this.setTooltip("AWS IAM Role");
+                    this.setHelpUrl("");
+                }
+            };
+        }
+
+        // Code Generator
+        function generateTerraformCode() {
+            const blocks = workspace.getTopBlocks();
+            let terraformObjects = [];
+            
+            blocks.forEach(block => {
+                const terraformObj = blockToTerraformObject(block);
+                if (terraformObj) {
+                    terraformObjects.push(terraformObj);
+                }
+            });
+
+            let hcl = '';
+            terraformObjects.forEach(obj => {
+                hcl += obj.generateHCL();
+            });
+
+            return hcl || '# No blocks in workspace\n# Drag blocks from the toolbox to start building';
+        }
+
+        function blockToTerraformObject(block) {
+            if (!block) return null;
+
+            const type = block.type.replace('terraform_', '');
+            const properties = {};
+
+            // Extract properties from block fields
+            Object.keys(block.inputList).forEach(key => {
+                const input = block.inputList[key];
+                input.fieldRow.forEach(field => {
+                    if (field.name_) {
+                        properties[field.name_.toLowerCase()] = field.getValue();
+                    }
+                });
+            });
+
+            const terraformObj = new TerraformBlock(type, properties.name, [], properties);
+
+            // Process child blocks
+            block.inputList.forEach(input => {
+                if (input.type === Blockly.NEXT_STATEMENT || input.type === Blockly.INPUT_VALUE) {
+                    let childBlock = input.connection?.targetBlock();
+                    while (childBlock) {
+                        const childObj = blockToTerraformObject(childBlock);
+                        if (childObj) {
+                            terraformObj.addChild(childObj);
+                        }
+                        childBlock = childBlock.nextConnection?.targetBlock();
+                    }
+                }
+            });
+
+            return terraformObj;
+        }
+
+        // Syntax Highlighting
+        function highlightHCL(code) {
+            return code
+                .replace(/\b(resource|provider|variable|output|data|module|terraform|locals)\b/g, '<span class="syntax-keyword">$1</span>')
+                .replace(/"([^"]*)"/g, '<span class="syntax-string">"$1"</span>')
+                .replace(/\b(\d+)\b/g, '<span class="syntax-number">$1</span>')
+                .replace(/#([^\n]*)/g, '<span class="syntax-comment">#$1</span>')
+                .replace(/\b(aws_\w+|azurerm_\w+|google_\w+)\b/g, '<span class="syntax-resource">$1</span>')
+                .replace(/(\w+)\s*=/g, '<span class="syntax-property">$1</span> =');
+        }
+
+        // Workspace Management
+        let workspace;
+
+        function initWorkspace() {
+            defineBlocks();
+
+            const toolbox = {
+                "kind": "categoryToolbox",
+                "contents": [
+                    {
+                        "kind": "category",
+                        "name": "🌐 Infrastructure",
+                        "colour": "#3b82f6",
+                        "contents": [
+                            {
+                                "kind": "block",
+                                "type": "terraform_provider"
+                            },
+                            {
+                                "kind": "block",
+                                "type": "terraform_vpc"
+                            }
+                        ]
+                    },
+                    {
+                        "kind": "category",
+                        "name": "🔗 Network",
+                        "colour": "#10b981",
+                        "contents": [
+                            {
+                                "kind": "block",
+                                "type": "terraform_subnet"
+                            },
+                            {
+                                "kind": "block",
+                                "type": "terraform_security_group"
+                            }
+                        ]
+                    },
+                    {
+                        "kind": "category",
+                        "name": "💻 Compute",
+                        "colour": "#f59e0b",
+                        "contents": [
+                            {
+                                "kind": "block",
+                                "type": "terraform_instance"
+                            }
+                        ]
+                    },
+                    {
+                        "kind": "category",
+                        "name": "👤 Security",
+                        "colour": "#ef4444",
+                        "contents": [
+                            {
+                                "kind": "block",
+                                "type": "terraform_iam_role"
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            workspace = Blockly.inject('blocklyDiv', {
+                toolbox: toolbox,
+                grid: {
+                    spacing: 20,
+                    length: 3,
+                    colour: '#ccc',
+                    snap: true
+                },
+                zoom: {
+                    controls: true,
+                    wheel: true,
+                    startScale: 1.0,
+                    maxScale: 3,
+                    minScale: 0.3,
+                    scaleSpeed: 1.2
+                },
+                trashcan: true,
+                scrollbars: true,
+                sounds: false,
+                theme: Blockly.Themes.Modern
+            });
+
+            // Listen for workspace changes
+            workspace.addChangeListener(updateCodePreview);
+            
+            // Initial code generation
+            updateCodePreview();
+        }
+
+        function updateCodePreview() {
+            const code = generateTerraformCode();
+            const highlightedCode = highlightHCL(code);
+            document.getElementById('codePreview').innerHTML = highlightedCode;
+            
+            // Update status
+            const statusEl = document.getElementById('statusIndicator');
+            const blockCount = workspace.getTopBlocks().length;
+            
+            if (blockCount === 0) {
+                statusEl.textContent = 'Empty Workspace';
+                statusEl.className = 'status-indicator status-invalid';
+            } else {
+                statusEl.textContent = `${blockCount} Resource${blockCount !== 1 ? 's' : ''}`;
+                statusEl.className = 'status-indicator status-valid';
+            }
+        }
+
+        // Utility Functions
+        function clearWorkspace() {
+            if (confirm('Are you sure you want to clear all blocks?')) {
+                workspace.clear();
+                updateCodePreview();
+            }
+        }
+
+        function exportCode() {
+            const code = generateTerraformCode();
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'main.tf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function loadExample() {
+            workspace.clear();
+            
+            // Create example infrastructure
+            const providerXml = '<block type="terraform_provider" x="20" y="20"><field name="PROVIDER">aws</field><field name="REGION">us-west-2</field></block>';
+            
+            const vpcXml = `<block type="terraform_vpc" x="20" y="120">
+                <field name="NAME">main_vpc</field>
+                <field name="CIDR">10.0.0.0/16</field>
+                <field name="DNS_HOSTNAMES">TRUE</field>
+                <field name="TAGS">Production VPC</field>
+                <statement name="SUBNETS">
+                    <block type="terraform_subnet">
+                        <field name="NAME">web_subnet</field>
+                        <field name="CIDR">10.0.1.0/24</field>
+                        <field name="AZ">us-west-2a</field>
+                        <field name="MAP_PUBLIC_IP">TRUE</field>
+                        <field name="TAGS">Web Subnet</field>
+                        <statement name="INSTANCES">
+                            <block type="terraform_instance">
+                                <field name="NAME">web_server</field>
+                                <field name="AMI">ami-0c94855ba95b798c7</field>
+                                <field name="INSTANCE_TYPE">t2.micro</field>
+                                <field name="KEY_NAME">my-key-pair</field>
+                                <field name="TAGS">Web Server</field>
+                                <statement name="IAM_ROLES">
+                                    <block type="terraform_iam_role">
+                                        <field name="NAME">web_role</field>
+                                        <field name="ROLE_NAME">WebServerRole</field>
+                                        <field name="SERVICE">ec2.amazonaws.com</field>
+                                    </block>
+                                </statement>
+                            </block>
+                        </statement>
+                        <next>
+                            <block type="terraform_security_group">
+                                <field name="NAME">web_sg</field>
+                                <field name="NAME_PREFIX">web-security-group</field>
+                                <field name="DESCRIPTION">Security group for web servers</field>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
+            </block>`;
+            
+            // Load the blocks
+            const providerBlock = Blockly.Xml.textToDom(providerXml);
+            const vpcBlock = Blockly.Xml.textToDom(vpcXml);
+            
+            Blockly.Xml.domToBlock(providerBlock.firstChild, workspace);
+            Blockly.Xml.domToBlock(vpcBlock.firstChild, workspace);
+            
+            updateCodePreview();
+        }
+
+        // Enhanced Block Validation
+        function validateWorkspace() {
+            const blocks = workspace.getAllBlocks();
+            const errors = [];
+            const warnings = [];
+
+            // Check for provider block
+            const providerBlocks = blocks.filter(block => block.type === 'terraform_provider');
+            if (providerBlocks.length === 0) {
+                warnings.push('No provider block found. Add a provider to specify cloud platform.');
+            } else if (providerBlocks.length > 1) {
+                warnings.push('Multiple provider blocks found. Consider consolidating.');
+            }
+
+            // Check VPC without subnets
+            const vpcBlocks = blocks.filter(block => block.type === 'terraform_vpc');
+            vpcBlocks.forEach(vpc => {
+                const subnets = vpc.getChildren().filter(child => child.type === 'terraform_subnet');
+                if (subnets.length === 0) {
+                    warnings.push(`VPC "${vpc.getFieldValue('NAME')}" has no subnets.`);
+                }
+            });
+
+            // Check instances without subnets
+            const instanceBlocks = blocks.filter(block => block.type === 'terraform_instance');
+            instanceBlocks.forEach(instance => {
+                const parent = instance.getParent();
+                if (!parent || parent.type !== 'terraform_subnet') {
+                    errors.push(`Instance "${instance.getFieldValue('NAME')}" must be inside a subnet.`);
+                }
+            });
+
+            // Check for duplicate names
+            const nameMap = {};
+            blocks.forEach(block => {
+                const name = block.getFieldValue('NAME');
+                if (name) {
+                    if (!nameMap[block.type]) nameMap[block.type] = [];
+                    if (nameMap[block.type].includes(name)) {
+                        errors.push(`Duplicate name "${name}" found in ${block.type} blocks.`);
+                    } else {
+                        nameMap[block.type].push(name);
+                    }
+                }
+            });
+
+            return { errors, warnings };
+        }
+
+        // Enhanced Code Generation with Validation
+        function generateTerraformCodeWithValidation() {
+            const validation = validateWorkspace();
+            let code = generateTerraformCode();
+            
+            if (validation.errors.length > 0) {
+                code = `# ERRORS FOUND:\n${validation.errors.map(e => `# ERROR: ${e}`).join('\n')}\n\n${code}`;
+            }
+            
+            if (validation.warnings.length > 0) {
+                code = `# WARNINGS:\n${validation.warnings.map(w => `# WARNING: ${w}`).join('\n')}\n\n${code}`;
+            }
+            
+            return code;
+        }
+
+        // Advanced Features
+        function addAdvancedFeatures() {
+            // Add custom context menu
+            workspace.configureContextMenu = function(menuOptions, e) {
+                const block = workspace.getBlockById(e.blockId);
+                if (block) {
+                    menuOptions.push({
+                        text: 'Validate Block',
+                        enabled: true,
+                        callback: function() {
+                            validateBlock(block);
+                        }
+                    });
+                    
+                    menuOptions.push({
+                        text: 'Generate HCL for Block',
+                        enabled: true,
+                        callback: function() {
+                            const terraformObj = blockToTerraformObject(block);
+                            if (terraformObj) {
+                                const hcl = terraformObj.generateHCL();
+                                alert('HCL for this block:\n\n' + hcl);
+                            }
+                        }
+                    });
+                }
+            };
+        }
+
+        function validateBlock(block) {
+            const terraformObj = blockToTerraformObject(block);
+            let messages = [];
+            
+            // Basic validation
+            if (!terraformObj.properties.name || terraformObj.properties.name.trim() === '') {
+                messages.push('Block name is required');
+            }
+            
+            // Type-specific validation
+            if (terraformObj.type === 'vpc') {
+                if (!terraformObj.properties.cidr || !isValidCIDR(terraformObj.properties.cidr)) {
+                    messages.push('Invalid CIDR block format');
+                }
+            }
+            
+            if (terraformObj.type === 'subnet') {
+                if (!terraformObj.properties.cidr || !isValidCIDR(terraformObj.properties.cidr)) {
+                    messages.push('Invalid subnet CIDR block format');
+                }
+            }
+            
+            if (terraformObj.type === 'instance') {
+                if (!terraformObj.properties.ami || !terraformObj.properties.ami.startsWith('ami-')) {
+                    messages.push('Invalid AMI ID format');
+                }
+            }
+            
+            const status = messages.length === 0 ? 'Valid' : 'Issues Found';
+            const details = messages.length === 0 ? 'Block validation passed' : messages.join('\n');
+            
+            alert(`Block Validation: ${status}\n\n${details}`);
+        }
+
+        function isValidCIDR(cidr) {
+            const cidrRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(?:[0-9]|[1-2][0-9]|3[0-2])$/;
+            return cidrRegex.test(cidr);
+        }
+
+        // Import/Export Functions
+        function importFromFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.xml,.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const content = e.target.result;
+                            if (file.name.endsWith('.xml')) {
+                                const xml = Blockly.Xml.textToDom(content);
+                                Blockly.Xml.domToWorkspace(xml, workspace);
+                            } else if (file.name.endsWith('.json')) {
+                                const state = JSON.parse(content);
+                                Blockly.serialization.workspaces.load(state, workspace);
+                            }
+                            updateCodePreview();
+                        } catch (error) {
+                            alert('Error importing file: ' + error.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+
+        function exportWorkspace() {
+            const state = Blockly.serialization.workspaces.save(workspace);
+            const json = JSON.stringify(state, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'terraform-workspace.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Add keyboard shortcuts
+        function addKeyboardShortcuts() {
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    exportWorkspace();
+                } else if (e.ctrlKey && e.key === 'o') {
+                    e.preventDefault();
+                    importFromFile();
+                } else if (e.ctrlKey && e.key === 'e') {
+                    e.preventDefault();
+                    exportCode();
+                } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                    const selectedBlock = Blockly.selected;
+                    if (selectedBlock && selectedBlock.isDeletable()) {
+                        selectedBlock.dispose();
+                        updateCodePreview();
+                    }
+                }
+            });
+        }
+
+        // Initialize everything when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initWorkspace();
+            addAdvancedFeatures();
+            addKeyboardShortcuts();
+            
+            // Update the toolbar with additional buttons
+            const toolbar = document.querySelector('.toolbar');
+            const leftButtons = toolbar.querySelector('div');
+            
+            // Add import button
+            const importBtn = document.createElement('button');
+            importBtn.className = 'btn';
+            importBtn.textContent = 'Import';
+            importBtn.onclick = importFromFile;
+            leftButtons.appendChild(importBtn);
+            
+            // Add export workspace button
+            const exportWorkspaceBtn = document.createElement('button');
+            exportWorkspaceBtn.className = 'btn';
+            exportWorkspaceBtn.textContent = 'Export Workspace';
+            exportWorkspaceBtn.onclick = exportWorkspace;
+            leftButtons.appendChild(exportWorkspaceBtn);
+            
+            // Add validation button
+            const validateBtn = document.createElement('button');
+            validateBtn.className = 'btn';
+            validateBtn.textContent = 'Validate All';
+            validateBtn.onclick = function() {
+                const validation = validateWorkspace();
+                let message = 'Workspace Validation Complete\n\n';
+                
+                if (validation.errors.length === 0 && validation.warnings.length === 0) {
+                    message += 'No issues found!';
+                } else {
+                    if (validation.errors.length > 0) {
+                        message += 'ERRORS:\n' + validation.errors.join('\n') + '\n\n';
+                    }
+                    if (validation.warnings.length > 0) {
+                        message += 'WARNINGS:\n' + validation.warnings.join('\n');
+                    }
+                }
+                
+                alert(message);
+            };
+            leftButtons.appendChild(validateBtn);
+            
+            console.log('Visual Terraform Editor initialized successfully!');
+            console.log('Keyboard shortcuts:');
+            console.log('- Ctrl+S: Export workspace');
+            console.log('- Ctrl+O: Import workspace');
+            console.log('- Ctrl+E: Export Terraform code');
+            console.log('- Delete/Backspace: Delete selected block');
+        });
+
+        // Override the updateCodePreview function to use validation
+        function updateCodePreview() {
+            const code = generateTerraformCodeWithValidation();
+            const highlightedCode = highlightHCL(code);
+            document.getElementById('codePreview').innerHTML = highlightedCode;
+            
+            // Update status with validation info
+            const statusEl = document.getElementById('statusIndicator');
+            const blockCount = workspace.getTopBlocks().length;
+            const validation = validateWorkspace();
+            
+            if (blockCount === 0) {
+                statusEl.textContent = 'Empty Workspace';
+                statusEl.className = 'status-indicator status-invalid';
+            } else if (validation.errors.length > 0) {
+                statusEl.textContent = `${validation.errors.length} Error${validation.errors.length !== 1 ? 's' : ''}`;
+                statusEl.className = 'status-indicator status-invalid';
+            } else if (validation.warnings.length > 0) {
+                statusEl.textContent = `${validation.warnings.length} Warning${validation.warnings.length !== 1 ? 's' : ''}`;
+                statusEl.className = 'status-indicator status-invalid';
+            } else {
+                statusEl.textContent = `${blockCount} Resource${blockCount !== 1 ? 's' : ''} - Valid`;
+                statusEl.className = 'status-indicator status-valid';
+            }
+        }
+    </script>
+</body>
+</html>
